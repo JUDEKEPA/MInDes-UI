@@ -451,6 +451,11 @@ class MainWindow(QMainWindow):
         comp3_action.triggered.connect(self.open_fitting_comp3)
         fitting_menu.addAction(comp3_action)
 
+        self.machine_learning_menu = tools_menu.addMenu(tr("menu.tools.machine_learning"))
+        phi_con_model_action = QAction(tr("menu.tools.phi_con_model"), self)
+        phi_con_model_action.triggered.connect(self.open_phi_con_model)
+        self.machine_learning_menu.addAction(phi_con_model_action)
+
         view_menu = menubar.addMenu(tr("menu.view"))
         font_size_menu = view_menu.addMenu(tr("menu.view.font_size"))
         font_targets = (
@@ -652,6 +657,26 @@ class MainWindow(QMainWindow):
                 tr("status.launch_tool_failed", tool="Fitting", error=e),
             )
 
+    def open_phi_con_model(self) -> None:
+        """Open the initial Comp3-based phi con model tool."""
+        try:
+            from .tools.machine_learning.phi_con_model_gui import PhiConModelDialog
+
+            dialog = PhiConModelDialog(parent=self)
+            dialog.setWindowIcon(get_app_icon())
+            dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+            dialog.show()
+            if not hasattr(self, "_tool_windows"):
+                self._tool_windows = []
+            self._tool_windows.append(dialog)
+            dialog.destroyed.connect(partial(self._remove_tool_window, dialog))
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                tr("dialog.launch_error.title"),
+                tr("status.launch_tool_failed", tool=tr("menu.tools.phi_con_model"), error=exc),
+            )
+
     def refresh_license_menu(self) -> None:
         self.license_menu.clear()
 
@@ -784,6 +809,15 @@ class MainWindow(QMainWindow):
         )
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        training_tools = [tool for tool in getattr(self, "_tool_windows", [])
+                          if getattr(tool, "is_training", False)]
+        if training_tools:
+            for tool in training_tools:
+                tool.close()
+            QTimer.singleShot(100, self.close)
+            event.ignore()
+            return
+
         self.settings.setValue("last_directory", self.file_browser.current_path)
 
         if self.build_widget and self.build_widget.is_running:

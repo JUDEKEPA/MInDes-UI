@@ -1,0 +1,5 @@
+# Additional dependencies for Machine Learning training.
+# Install with the Python environment that launches MInDes-UI.
+torch>=2.8
+scikit-learn
+hyperopt
